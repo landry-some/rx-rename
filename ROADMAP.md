@@ -2,11 +2,11 @@
 
 ## v0.1
 
-- [ ] Preview by default: `rx-rename PATTERN REPLACEMENT [PATHS...]` prints old → new, changes nothing
-- [ ] Conflict checks: duplicate targets, existing targets, empty/invalid names block `--apply`
-- [ ] `--apply` with two-phase renames so swaps and cycles work
-- [ ] Selection: `-r` recursive, `--glob` filter, `--dirs` to include directories, `-i` ignore case
-- [ ] Undo: JSON journal per apply, `rx-rename undo` reverses the last batch
+- [x] Preview by default: `rx-rename PATTERN REPLACEMENT [PATHS...]` prints old → new, changes nothing
+- [x] Conflict checks: duplicate targets, existing targets, empty/invalid names block `--apply`
+- [x] `--apply` with two-phase renames so swaps and cycles work
+- [x] Selection: `-r` recursive, `--glob` filter, `--dirs` to include directories, `-i` ignore case
+- [x] Undo: JSON journal per apply, `rx-rename undo` reverses the last batch
 
 ## After v0.1 (~29 h)
 
