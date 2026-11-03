@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import __version__
+from . import __version__, journal
 from .executor import apply
 from .planner import Conflict, Rename, find_conflicts, plan
 
@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rx-rename",
         description="Rename files with a regular expression. "
         "Shows what would change; nothing is renamed by default.",
+        epilog="Run 'rx-rename undo [--apply]' to reverse the last applied batch.",
     )
     parser.add_argument("pattern", help="regex matched against each file's basename")
     parser.add_argument(
@@ -96,6 +97,9 @@ def print_preview(
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["undo"]:
+        return undo(argv[1:])
     args = build_parser().parse_args(argv)
     try:
         regex = re.compile(args.pattern, re.IGNORECASE if args.ignore_case else 0)
@@ -122,6 +126,46 @@ def main(argv: list[str] | None = None) -> int:
             print(f"rx-rename: rename failed, changes rolled back: {exc}", file=sys.stderr)
             return 1
         print(f"\nRenamed {len(renames)} file(s).")
+        try:
+            journal.save(renames)
+        except OSError as exc:
+            print(f"rx-rename: warning: could not save undo journal: {exc}", file=sys.stderr)
+    return 0
+
+
+def undo(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="rx-rename undo", description="Reverse the last applied batch."
+    )
+    parser.add_argument(
+        "--apply", action="store_true", help="actually reverse the renames"
+    )
+    args = parser.parse_args(argv)
+    try:
+        renames = journal.load_undo()
+    except (OSError, ValueError, KeyError) as exc:
+        print(f"rx-rename: cannot read undo journal: {exc}", file=sys.stderr)
+        return 2
+    if not renames:
+        print("Nothing to undo.")
+        return 0
+
+    conflicts = [
+        Conflict(r, "file has been moved or deleted since")
+        for r in renames
+        if not r.src.exists() and not r.src.is_symlink()
+    ] or find_conflicts(renames)
+    print_preview(renames, conflicts, args.apply)
+    if conflicts:
+        return 1
+    if args.apply:
+        try:
+            apply(renames)
+        except OSError as exc:
+            print(f"rx-rename: undo failed, changes rolled back: {exc}", file=sys.stderr)
+            return 1
+        journal.clear()
+        print(f"\nRestored {len(renames)} file(s).")
     return 0
 
 
