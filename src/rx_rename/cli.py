@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .planner import Rename, plan
+from .planner import Conflict, Rename, find_conflicts, plan
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -43,11 +43,17 @@ def collect(paths: list[Path]) -> list[Path]:
     return found
 
 
-def print_preview(renames: list[Rename]) -> None:
+def print_preview(renames: list[Rename], conflicts: list[Conflict]) -> None:
+    problems = {c.rename: c.reason for c in conflicts}
     width = max(len(str(r.src)) for r in renames)
     for r in renames:
-        print(f"{str(r.src):<{width}}  ->  {r.dst}")
+        line = f"{str(r.src):<{width}}  ->  {r.dst}"
+        if r in problems:
+            line = f"{line}  !! {problems[r]}"
+        print(line)
     print(f"\n{len(renames)} file(s) would be renamed. Nothing was changed.")
+    if conflicts:
+        print(f"{len(conflicts)} conflict(s) must be fixed before applying.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -65,8 +71,9 @@ def main(argv: list[str] | None = None) -> int:
     if not renames:
         print("No files would be renamed.")
         return 0
-    print_preview(renames)
-    return 0
+    conflicts = find_conflicts(renames)
+    print_preview(renames, conflicts)
+    return 1 if conflicts else 0
 
 
 if __name__ == "__main__":
