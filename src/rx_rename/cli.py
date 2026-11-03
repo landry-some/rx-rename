@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
+from .executor import apply
 from .planner import Conflict, Rename, find_conflicts, plan
 
 
@@ -26,6 +27,9 @@ def build_parser() -> argparse.ArgumentParser:
         default=[Path(".")],
         help="files or directories to rename in (default: current directory)",
     )
+    parser.add_argument(
+        "--apply", action="store_true", help="actually rename the files"
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser
 
@@ -43,7 +47,9 @@ def collect(paths: list[Path]) -> list[Path]:
     return found
 
 
-def print_preview(renames: list[Rename], conflicts: list[Conflict]) -> None:
+def print_preview(
+    renames: list[Rename], conflicts: list[Conflict], applying: bool = False
+) -> None:
     problems = {c.rename: c.reason for c in conflicts}
     width = max(len(str(r.src)) for r in renames)
     for r in renames:
@@ -51,9 +57,12 @@ def print_preview(renames: list[Rename], conflicts: list[Conflict]) -> None:
         if r in problems:
             line = f"{line}  !! {problems[r]}"
         print(line)
-    print(f"\n{len(renames)} file(s) would be renamed. Nothing was changed.")
     if conflicts:
-        print(f"{len(conflicts)} conflict(s) must be fixed before applying.")
+        print(f"\n{len(conflicts)} conflict(s) must be fixed before applying.")
+        print("Nothing was changed.")
+    elif not applying:
+        print(f"\n{len(renames)} file(s) would be renamed. Nothing was changed.")
+        print("Run again with --apply to rename them.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -72,8 +81,17 @@ def main(argv: list[str] | None = None) -> int:
         print("No files would be renamed.")
         return 0
     conflicts = find_conflicts(renames)
-    print_preview(renames, conflicts)
-    return 1 if conflicts else 0
+    print_preview(renames, conflicts, args.apply)
+    if conflicts:
+        return 1
+    if args.apply:
+        try:
+            apply(renames)
+        except OSError as exc:
+            print(f"rx-rename: rename failed, changes rolled back: {exc}", file=sys.stderr)
+            return 1
+        print(f"\nRenamed {len(renames)} file(s).")
+    return 0
 
 
 if __name__ == "__main__":
