@@ -44,6 +44,8 @@ def find_conflicts(renames: list[Rename]) -> list[Conflict]:
 
     for r in renames:
         reason = _name_problem(r.new_name)
+        if reason is None and any(parent in sources for parent in r.src.resolve().parents):
+            reason = "inside a directory that is also being renamed"
         if reason is None:
             target = r.dst.resolve()
             others = [o.src for o in by_target[target] if o is not r]

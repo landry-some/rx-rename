@@ -1,6 +1,8 @@
 """Command-line entry point."""
 
 import argparse
+import fnmatch
+import os
 import re
 import sys
 from pathlib import Path
@@ -30,20 +32,48 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apply", action="store_true", help="actually rename the files"
     )
+    parser.add_argument(
+        "-r", "--recursive", action="store_true", help="descend into subdirectories"
+    )
+    parser.add_argument(
+        "--glob", metavar="GLOB", help="only consider names matching GLOB, e.g. '*.jpg'"
+    )
+    parser.add_argument(
+        "--dirs", action="store_true", help="rename directories as well as files"
+    )
+    parser.add_argument(
+        "-i", "--ignore-case", action="store_true", help="match the pattern case-insensitively"
+    )
     parser.add_argument("--version", action="version", version=__version__)
     return parser
 
 
-def collect(paths: list[Path]) -> list[Path]:
-    """Expand directories into the files directly inside them."""
+def collect(
+    paths: list[Path],
+    recursive: bool = False,
+    glob: str | None = None,
+    dirs: bool = False,
+) -> list[Path]:
+    """Expand directory arguments into the entries to consider for renaming.
+
+    Files named directly are always kept. Entries found inside a directory are
+    kept if they are files (or directories, with dirs=True) matching glob.
+    """
     found = []
     for path in paths:
-        if path.is_dir():
-            found.extend(sorted(p for p in path.iterdir() if p.is_file()))
-        elif path.exists():
-            found.append(path)
-        else:
+        if not path.exists() and not path.is_symlink():
             raise FileNotFoundError(path)
+        if not path.is_dir():
+            found.append(path)
+            continue
+        for parent, subdirs, files in os.walk(path):
+            subdirs.sort()
+            names = sorted(files + subdirs) if dirs else sorted(files)
+            for name in names:
+                if glob is None or fnmatch.fnmatch(name, glob):
+                    found.append(Path(parent) / name)
+            if not recursive:
+                break
     return found
 
 
@@ -68,8 +98,9 @@ def print_preview(
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        regex = re.compile(args.pattern)
-        renames = plan(collect(args.paths), regex, args.replacement)
+        regex = re.compile(args.pattern, re.IGNORECASE if args.ignore_case else 0)
+        paths = collect(args.paths, args.recursive, args.glob, args.dirs)
+        renames = plan(paths, regex, args.replacement)
     except re.error as exc:
         print(f"rx-rename: bad pattern or replacement: {exc}", file=sys.stderr)
         return 2
