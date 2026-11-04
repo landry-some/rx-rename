@@ -11,7 +11,7 @@
 ## After v0.1 (~29 h)
 
 ### Features (13 h)
-- [ ] Counter/sequence tokens (`{n:03}`) and date-from-mtime tokens — 3 h
+- [x] Counter/sequence tokens (`{n:03}`) and date-from-mtime tokens — 3 h
 - [x] Case transforms (`\U`, `\L`, title case) in the replacement — 2 h
 - [ ] Interactive mode: approve or skip each rename — 2.5 h
 - [ ] Coloured highlighting of the changed part of each name — 2 h

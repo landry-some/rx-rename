@@ -39,6 +39,16 @@ default to the current directory. Quote both arguments so the shell leaves them 
 `'\.(jpe?g)$' '.\U\1'` turns `cat.jpg` into `cat.JPG`, and `'^(.*)$' '\T\1'` turns
 `summer holiday.mp4` into `Summer Holiday.Mp4`. Write `\\U` for a literal `\U`.
 
+`REPLACEMENT` can also contain these tokens:
+
+- `{n}` the number of this rename in the batch, from 1, in the order files are listed
+  (sorted by name within each directory). Add a format spec to pad it: `{n:03}` → `007`.
+- `{mtime}` the file's modification date as `2024-03-09`, or any `strftime` format such
+  as `{mtime:%Y%m%d-%H%M}`.
+
+So `'^IMG_\d+' '{mtime}-{n:03}'` turns `IMG_4711.jpg` into `2024-03-09-001.jpg`. Other
+braces are kept as they are.
+
 Without `--apply` nothing on disk changes. Using the fake files in `examples/photos/`:
 
 ```console
