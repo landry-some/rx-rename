@@ -18,14 +18,46 @@ class Rename:
 def plan(paths: list[Path], regex: re.Pattern, replacement: str) -> list[Rename]:
     """Return a Rename for every path whose basename the regex would change.
 
+    The replacement may use \\U, \\L or \\T to upper-, lower- or title-case
+    what follows, up to \\E or the next case escape.
     Raises re.error if the replacement refers to a group the pattern lacks.
     """
+    substitute = _substituter(replacement) if isinstance(replacement, str) else replacement
     renames = []
     for path in paths:
-        new_name = regex.sub(replacement, path.name)
+        new_name = regex.sub(substitute, path.name)
         if new_name != path.name:
             renames.append(Rename(path, new_name))
     return renames
+
+
+_CASE_ESCAPE = re.compile(r"\\\\|\\([ULTE])")
+_CASES = {"U": str.upper, "L": str.lower, "T": str.title, "E": None}
+
+
+def _substituter(replacement: str):
+    """Return the replacement for re.sub, as a function if it uses case escapes."""
+    parts = []
+    case = None
+    start = 0
+    for m in _CASE_ESCAPE.finditer(replacement):
+        if m.group(1) is None:  # an escaped backslash, left for re to handle
+            continue
+        parts.append((case, replacement[start : m.start()]))
+        case = _CASES[m.group(1)]
+        start = m.end()
+    if not parts:
+        return replacement
+    parts.append((case, replacement[start:]))
+
+    def expand(match: re.Match) -> str:
+        out = []
+        for change_case, template in parts:
+            text = match.expand(template)
+            out.append(change_case(text) if change_case else text)
+        return "".join(out)
+
+    return expand
 
 
 @dataclass(frozen=True)

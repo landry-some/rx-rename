@@ -34,6 +34,11 @@ rx-rename undo [--apply]
 the directory part). `REPLACEMENT` can refer to groups with `\1` or `\g<name>`. `PATHS`
 default to the current directory. Quote both arguments so the shell leaves them alone.
 
+`\U`, `\L` and `\T` in `REPLACEMENT` upper-, lower- or title-case everything after them
+(group text included) up to `\E` or the next of these escapes. For example
+`'\.(jpe?g)$' '.\U\1'` turns `cat.jpg` into `cat.JPG`, and `'^(.*)$' '\T\1'` turns
+`summer holiday.mp4` into `Summer Holiday.Mp4`. Write `\\U` for a literal `\U`.
+
 Without `--apply` nothing on disk changes. Using the fake files in `examples/photos/`:
 
 ```console
