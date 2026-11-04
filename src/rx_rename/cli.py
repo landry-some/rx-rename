@@ -17,7 +17,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rx-rename",
         description="Rename files with a regular expression. "
         "Shows what would change; nothing is renamed by default.",
-        epilog="Run 'rx-rename undo [--apply]' to reverse the last applied batch.",
+        epilog="Run 'rx-rename undo [ID] [--apply]' to reverse an applied batch "
+        "and 'rx-rename undo --list' to see them.",
     )
     parser.add_argument("pattern", help="regex matched against each file's basename")
     parser.add_argument(
@@ -135,20 +136,34 @@ def main(argv: list[str] | None = None) -> int:
 
 def undo(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="rx-rename undo", description="Reverse the last applied batch."
+        prog="rx-rename undo",
+        description="Reverse an applied batch, the most recent one by default.",
+    )
+    parser.add_argument(
+        "id", nargs="?", type=int, help="batch to reverse, as shown by --list"
     )
     parser.add_argument(
         "--apply", action="store_true", help="actually reverse the renames"
     )
+    parser.add_argument(
+        "--list", action="store_true", help="list the batches that can be undone"
+    )
     args = parser.parse_args(argv)
+    ids = journal.batch_ids()
+    if args.list:
+        return list_batches(ids)
+    if not ids:
+        print("Nothing to undo.")
+        return 0
+    batch_id = ids[-1] if args.id is None else args.id
+    if batch_id not in ids:
+        print(f"rx-rename: no batch {batch_id} to undo (see 'undo --list')", file=sys.stderr)
+        return 2
     try:
-        renames = journal.load_undo()
+        renames = journal.undo_renames(journal.load(batch_id))
     except (OSError, ValueError, KeyError) as exc:
         print(f"rx-rename: cannot read undo journal: {exc}", file=sys.stderr)
         return 2
-    if not renames:
-        print("Nothing to undo.")
-        return 0
 
     conflicts = [
         Conflict(r, "file has been moved or deleted since")
@@ -164,9 +179,31 @@ def undo(argv: list[str]) -> int:
         except OSError as exc:
             print(f"rx-rename: undo failed, changes rolled back: {exc}", file=sys.stderr)
             return 1
-        journal.clear()
-        print(f"\nRestored {len(renames)} file(s).")
+        journal.clear(batch_id)
+        print(f"\nRestored {len(renames)} file(s) from batch {batch_id}.")
     return 0
+
+
+def list_batches(ids: list[int]) -> int:
+    if not ids:
+        print("Nothing to undo.")
+        return 0
+    status = 0
+    for batch_id in reversed(ids):
+        try:
+            data = journal.load(batch_id)
+            first = data["renames"][0]
+            count = len(data["renames"])
+        except (OSError, ValueError, KeyError, IndexError) as exc:
+            print(f"{batch_id:>4}  unreadable: {exc}")
+            status = 2
+            continue
+        print(
+            f"{batch_id:>4}  {data.get('applied_at', '?')}  {count} file(s)  "
+            f"{first['src']}  ->  {Path(first['dst']).name}"
+            + ("  ..." if count > 1 else "")
+        )
+    return status
 
 
 if __name__ == "__main__":

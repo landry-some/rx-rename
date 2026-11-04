@@ -27,7 +27,7 @@ Or run it without installing: `PYTHONPATH=src python3 -m rx_rename.cli ...`
 
 ```
 rx-rename PATTERN REPLACEMENT [PATHS...] [--apply] [-r] [--glob GLOB] [--dirs] [-i]
-rx-rename undo [--apply]
+rx-rename undo [ID] [--apply] [--list]
 ```
 
 `PATTERN` is a Python regular expression matched against each file's basename (never
@@ -86,11 +86,15 @@ These block `--apply` and are shown with `!!` in the preview:
 
 ### Undo
 
-Every `--apply` saves the batch to `$XDG_STATE_HOME/rx-rename/last.json`
-(`~/.local/state/rx-rename/last.json` by default). `rx-rename undo` previews reversing
-it and `rx-rename undo --apply` does it. Undo refuses if a renamed file has since moved
-or if something new now has one of the original names. Only the most recent batch is
-kept.
+Every `--apply` saves the batch under `$XDG_STATE_HOME/rx-rename/history/`
+(`~/.local/state/rx-rename/history/` by default) with a numeric id.
+
+- `rx-rename undo --list` shows the batches that can still be undone, newest first.
+- `rx-rename undo` previews reversing the newest batch; `rx-rename undo --apply` does it.
+- `rx-rename undo ID [--apply]` does the same for an older batch.
+
+Undo refuses if a renamed file has since moved or if something new now has one of the
+original names. A batch is removed from the history once it has been undone.
 
 ### Exit codes
 

@@ -16,7 +16,7 @@
 - [ ] Interactive mode: approve or skip each rename — 2.5 h
 - [ ] Coloured highlighting of the changed part of each name — 2 h
 - [ ] Option to match against the relative path, not just the basename — 1.5 h
-- [ ] Undo history beyond the last batch (`undo --list`, `undo <id>`) — 2 h
+- [x] Undo history beyond the last batch (`undo --list`, `undo <id>`) — 2 h
 
 ### Bugs and edge cases (8 h)
 - [ ] Case-only renames on case-insensitive filesystems (macOS, Windows) — 2 h
